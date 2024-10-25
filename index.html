@@ -1,0 +1,167 @@
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden; /* Prevent scrolling */
+      }
+      
+      /* Banner Style */
+      .banner {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        background: rgba(255, 218, 185, 0.9); /* Light peach with slight translucency */
+        color: #D98659; /* Darker peach text */
+        padding: 15px;
+        text-align: center;
+        font-size: 1.2em;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        box-sizing: border-box;
+      }
+
+      /* Image Style in Banner */
+      .banner img {
+        width: 40px;
+        height: 40px;
+        margin-right: 10px;
+        border-radius: 50%;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="banner">
+      <img src="photo.png" alt="Photo" />
+      Puri huyi #PanNa ki tamanna
+    </div>
+    
+    <!-- Your existing AR and A-Frame content here -->
+    <audio id="backgroundMusic" src="bgd_music.mp3" preload="auto"></audio>
+    <a-scene mindar-image="imageTargetSrc: ashna.mind;" color-space="sRGB" renderer="colorManagement: true; physicallyCorrectLights: true">
+      <a-assets>
+        <a-asset-item id="avatarModel" src="ashna_pankaj.glb"></a-asset-item>
+      </a-assets>
+
+      <!-- Lights -->
+      <a-light type="ambient" color="#ffffff" intensity="2"></a-light>
+      <a-light type="hemisphere" color="#d3f0ff" groundColor="#ffffff" intensity="1" position="0 2 0"></a-light>
+      <a-light type="directional" color="#ffffff" intensity="1.5" position="1 1 0.5"></a-light>
+
+      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+      <a-entity mindar-image-target="targetIndex: 0" id="modelContainer">
+        <a-gltf-model id="model" src="#avatarModel" rotation="0 0 0" position="0 0 0.1" scale="5 5 5" 
+                      animation="property: position; to: 0 0.1 0.1; dur: 1000; easing: easeInOutQuad; loop: true; dir: alternate">
+      
+      </a-entity>
+    </a-scene>
+
+    <script>
+      const model = document.getElementById('model');
+      const backgroundMusic = document.getElementById('backgroundMusic');
+
+      // Variables to track gesture states
+      let isDragging = false;
+      let previousX = 0;
+      let previousY = 0;
+      let initialDistance = 0;
+
+      // Current rotation angles
+      let rotationY = 0;  // Y-axis rotation
+      let rotationX = 0;  // X-axis rotation
+
+      const MAX_ROTATION = Math.PI / 2; // 90 degrees in radians
+
+      // Start interaction
+      const startInteraction = (event) => {
+        if (event.touches.length === 1) {
+          event.preventDefault();
+          previousX = event.touches[0].clientX;
+          previousY = event.touches[0].clientY;
+          isDragging = true;
+        } else if (event.touches.length === 2) {
+          // Pinch to zoom
+          event.preventDefault();
+          initialDistance = getDistance(event.touches[0], event.touches[1]);
+        }
+      };
+
+      // Handle movement (rotation)
+      const moveModel = (event) => {
+        if (event.touches.length === 1 && isDragging) {
+          let currentX = event.touches[0].clientX;
+          let currentY = event.touches[0].clientY;
+          const deltaX = currentX - previousX;
+          const deltaY = currentY - previousY;
+
+          // Update rotation angles with constraints
+          rotationY += deltaX * 0.01; // Adjust sensitivity if needed
+          rotationX -= deltaY * 0.01;
+
+          // Constrain the rotation angles
+          rotationY = Math.max(-MAX_ROTATION, Math.min(MAX_ROTATION, rotationY));
+          rotationX = Math.max(-MAX_ROTATION, Math.min(MAX_ROTATION, rotationX));
+
+          // Apply the rotations
+          model.object3D.rotation.y = rotationY;
+          model.object3D.rotation.x = rotationX;
+
+          previousX = currentX;
+          previousY = currentY;
+        } else if (event.touches.length === 2) {
+          // Pinch to zoom (if needed)
+          const currentDistance = getDistance(event.touches[0], event.touches[1]);
+          const scaleChange = currentDistance / initialDistance;
+
+          model.object3D.scale.set(
+            model.object3D.scale.x * scaleChange,
+            model.object3D.scale.y * scaleChange,
+            model.object3D.scale.z * scaleChange
+          );
+
+          initialDistance = currentDistance; // Update for next move event
+        }
+      };
+
+      // End interaction
+      const endInteraction = () => {
+        isDragging = false;
+      };
+
+      // Utility to get distance between two touches (for pinch gesture)
+      const getDistance = (touch1, touch2) => {
+        const dx = touch1.clientX - touch2.clientX;
+        const dy = touch1.clientY - touch2.clientY;
+        return Math.sqrt(dx * dx + dy * dy);
+      };
+
+      // Play background music when the model is detected
+      const modelContainer = document.getElementById('modelContainer');
+
+      // Enable audio playback after user interaction
+      const enableAudio = () => {
+        backgroundMusic.play().catch(error => {
+          console.log("Playback blocked until user interaction:", error);
+        });
+        document.removeEventListener('click', enableAudio); // Remove listener after enabling audio
+      };
+      document.addEventListener('click', enableAudio); // Add listener for user interaction
+
+      // Play music when the model is detected
+      modelContainer.addEventListener('model-loaded', () => {
+        backgroundMusic.play();
+      });
+
+      // Event listeners for touch and zoom
+      window.addEventListener('touchstart', startInteraction);
+      window.addEventListener('touchmove', moveModel);
+      window.addEventListener('touchend', endInteraction);
+      window.addEventListener('wheel', zoomPage); // Zoom with mouse wheel
+    </script>
+  </body>
+</html>
